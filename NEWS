@@ -1,3 +1,17 @@
+0.4.2
+=====
+* fixed base url (Romamo:master:5b4f04d5d6)
+* bumped BeautifulSoup version >= 4.1
+* now able to specify timeouts
+* fixed line splitting in quickinfo (dboshardy:master:47c58977fb)
+* fixed bitbucket issue #4 - failing gracefully with no episodes (pR0Ps:fix_no_eps:ac3c209)
+* fixed issue #3 (kbadk:master:4ada774)
+* file not executable (cicku:patch-1:a39f6cf)
+* covers ckreutzer:master pull requests 2,4,5,6,7,8
+* added timeout to requests
+* switched from print to logging
+
+
 0.4.1
 =====
 * some fixes for `Episodes.recap`

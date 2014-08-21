@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-
-# Copyright (c) 2010, Christian Kreutzer
+# Copyright (c) 2009-2014, Christian Kreutzer
+# Modified by Florian Jung
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

@@ -1,4 +1,5 @@
-# Copyright (c) 2009, Christian Kreutzer
+# Copyright (c) 2009-2014, Christian Kreutzer
+# Modified by Florian Jung
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,9 +25,13 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+import logging
+from urllib2 import urlopen, HTTPError
+import socket
+from bs4 import BeautifulSoup
 
-from urllib2 import urlopen, URLError
-from BeautifulSoup import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 
 class TvrageError(Exception):
@@ -37,6 +42,11 @@ class TvrageError(Exception):
 
     def __str__(self):
         return self.msg
+
+
+class TvrageTimeoutError(TvrageError):
+    """ Wrapper for socket.timeout """
+    pass
 
 
 class TvrageRequestError(TvrageError):
@@ -54,10 +64,10 @@ class TvrageInternalServerError(TvrageError):
     pass
 
 
-def _fetch(url):
+def _fetch(url, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
     try:
-        result = urlopen(url)
-    except URLError, e:
+        result = urlopen(url, timeout=timeout)
+    except HTTPError, e:
         if 400 == e.code:
             raise TvrageRequestError(str(e))
         elif 404 == e.code:
@@ -66,6 +76,8 @@ def _fetch(url):
             raise TvrageInternalServerError(str(e))
         else:
             raise TvrageError(str(e))
+    except socket.timeout, e:
+        raise TvrageTimeoutError(str(e))
     except Exception, e:
         raise TvrageError(str(e))
     else:
@@ -81,4 +93,4 @@ def parse_synopsis(page, cleanup=None):
             result, _ = result.split(cleanup)
         return result
     except AttributeError, e:
-        print('parse_synopyis - BeautifulSoup.find(): %s' % e)
+        logger.error('parse_synopyis - BeautifulSoup.find(): %s' % e)

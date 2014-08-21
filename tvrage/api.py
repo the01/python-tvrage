@@ -1,10 +1,11 @@
-# Copyright (c) 2009, Christian Kreutzer
+# Copyright (c) 2009-2014, Christian Kreutzer
+# Modified by Florian Jung
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
-#   * Redistributions of source code must retain the above copyright notice,
+# * Redistributions of source code must retain the above copyright notice,
 #     this list of conditions, and the following disclaimer.
 #   * Redistributions in binary form must reproduce the above copyright notice,
 #     this list of conditions, and the following disclaimer in the
@@ -25,15 +26,18 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import feeds
-
+import logging
 from datetime import date
 from time import mktime, strptime
 
 from exceptions import (ShowHasEnded, FinaleMayNotBeAnnouncedYet,
                         ShowNotFound, NoNewEpisodesAnnounced)
 
+import feeds
 from util import _fetch, parse_synopsis
+
+logger = logging.getLogger(__name__)
+timeout = None
 
 
 class Episode(object):
@@ -64,7 +68,10 @@ class Episode(object):
     def summary(self):
         """parses the episode's summary from the episode's tvrage page"""
         try:
-            page = _fetch(self.link).read()
+            if timeout:
+                page = _fetch(self.link, timeout=timeout).read()
+            else:
+                page = _fetch(self.link).read()
             if not 'Click here to add a summary' in page:
                 summary = parse_synopsis(page, cleanup='var addthis_config')
                 return summary
@@ -77,14 +84,17 @@ class Episode(object):
         """parses the episode's recap text from the episode's tvrage recap
         page"""
         try:
-            page = _fetch(self.recap_url).read()
+            if timeout:
+                page = _fetch(self.recap_url, timeout=timeout).read()
+            else:
+                page = _fetch(self.recap_url).read()
             if not 'Click here to add a recap for' in page:
                 recap = parse_synopsis(page,
                                        cleanup='Share this article with your'
-                                       ' friends')
+                                               ' friends')
                 return recap
         except Exception, e:
-            print('Episode.recap:urlopen: %s, %s' % (self, e))
+            logger.error('Episode.recap:urlopen: %s, %s' % (self, e))
         return 'No recap available'
 
 
@@ -135,7 +145,7 @@ class Show(object):
         self.ended = 0
         self.seasons = 0
 
-        show = feeds.search(self.shortname, node='show')
+        show = feeds.search(self.shortname, node='show', timeout=timeout)
         if not show:
             raise ShowNotFound(name)
         # dynamically mapping the xml tags to properties:
@@ -150,7 +160,10 @@ class Show(object):
         self.genres = [g.text for g in show.find('genres')]
 
         # and now grabbing the episodes
-        eplist = feeds.episode_list(self.showid, node='Episodelist')
+        eplist = feeds.episode_list(self.showid, node='Episodelist', timeout=timeout)
+
+        if not eplist:
+            eplist = []
 
         # populating the episode list
         for season in eplist:
@@ -209,11 +222,12 @@ class Show(object):
     def latest_episode(self):
         """returns the latest episode that has aired already"""
         today = date.today()
-        eps = self.season(self.seasons).values()
-        eps.reverse()
-        for e in eps:
-            if (e.airdate is not None) and (e.airdate < today):
-                return e
+        for season_no in reversed(range(1, self.seasons+1)):
+            eps = self.season(season_no).values()
+            eps.reverse()
+            for e in eps:
+                if (e.airdate is not None) and (e.airdate < today):
+                    return e
 
     @property
     def synopsis(self):
@@ -221,11 +235,14 @@ class Show(object):
         expression. This method might break when the page changes. unfortunatly
         the episode summary isnt available via one of the xml feeds"""
         try:
-            page = _fetch(self.link).read()
+            if timeout:
+                page = _fetch(self.link, timeout=timeout).read()
+            else:
+                page = _fetch(self.link).read()
             synopsis = parse_synopsis(page)
             return synopsis
         except Exception, e:
-            print('Show.synopsis:urlopen: %s, %s' % (self, e))
+            logger.error('Show.synopsis:urlopen: %s, %s' % (self, e))
         return 'No Synopsis available'
 
     def season(self, n):
